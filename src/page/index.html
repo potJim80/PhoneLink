@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Phone Link">
+<meta name="theme-color" content="#f4f3f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161619" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Phone Link</title>
+<style>
+:root {
+	--bg: #f4f3f0; --card: #fff; --ink: #1d1d1f; --mute: #6e6e73; --line: #e2e0db;
+	--accent: #4a6a92; --ok: #3d8a5a; --warn: #b5772b;
+}
+@media (prefers-color-scheme: dark) {
+	:root { --bg: #161619; --card: #222226; --ink: #ecebe8; --mute: #9a9aa0; --line: #33333a;
+		--accent: #8fa8c6; --ok: #6cbf8a; --warn: #e0a560; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body {
+	font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+	padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+	max-width: 480px; margin: 0 auto; -webkit-user-select: none; user-select: none;
+}
+h1 { font-size: 17px; font-weight: 600; margin: 0 0 20px; }
+.status { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+.dot { width: 11px; height: 11px; border-radius: 50%; background: var(--line); flex: none; }
+.dot.on { background: var(--ok); }
+.dot.wait { background: var(--warn); }
+.sub { color: var(--mute); font-size: 15px; min-height: 22px; margin-bottom: 20px; font-variant-numeric: tabular-nums; }
+button.main {
+	width: 100%; padding: 18px; border: 0; border-radius: 14px; font: inherit; font-weight: 600;
+	background: var(--accent); color: var(--bg); -webkit-tap-highlight-color: transparent;
+}
+button.main.stop { background: var(--card); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+button.main:active { opacity: .75; }
+.list { background: var(--card); border-radius: 14px; margin: 20px 0; box-shadow: inset 0 0 0 1px var(--line); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
+.row + .row { border-top: 1px solid var(--line); }
+.row small { display: block; color: var(--mute); font-size: 13px; line-height: 1.35; margin-top: 2px; }
+.switch { position: relative; flex: none; width: 51px; height: 31px; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; z-index: 1; }
+.switch span { position: absolute; inset: 0; border-radius: 16px; background: var(--line); transition: background .2s; }
+.switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+	background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+.switch input:checked + span { background: var(--ok); }
+.switch input:checked + span::after { transform: translateX(20px); }
+.note { color: var(--mute); font-size: 14px; }
+.note p { margin: 0 0 10px; }
+.err { color: var(--warn); font-size: 15px; margin: 12px 0 0; }
+.row.slide { display: block; }
+.row[hidden] { display: none; }
+.row[hidden] + .row { border-top: 0; }
+.slide .top { display: flex; justify-content: space-between; gap: 12px; }
+.slide .top span:last-child { color: var(--mute); font-variant-numeric: tabular-nums; flex: none; }
+.slide.idle .top span:first-child { color: var(--mute); }
+.head { color: var(--mute); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; margin: 24px 16px -12px; }
+input[type=range] { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 34px; margin: 2px 0 0;
+	background: transparent; touch-action: pan-y; }
+input[type=range]:focus { outline: none; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px;
+	background: linear-gradient(to right, var(--accent) var(--p, 100%), var(--line) var(--p, 100%)); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; margin-top: -11px; border-radius: 50%;
+	background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3), 0 0 0 .5px rgba(0,0,0,.1); }
+input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--line); }
+input[type=range]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+input[type=range]::-moz-range-thumb { width: 28px; height: 28px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+</style>
+</head>
+<body>
+<h1>Phone Link</h1>
+
+<div class="status"><span class="dot" id="dot"></span><span id="status">Not connected</span></div>
+<div class="sub" id="sub">Tap Connect to hear the Mac here.</div>
+
+<button class="main" id="go">Connect</button>
+<p class="err" id="err" hidden></p>
+
+<div class="list">
+	<div class="row slide">
+		<div class="top"><span>Volume</span><span id="volText">100%</span></div>
+		<input type="range" id="vol" min="0" max="100" step="1" value="100" aria-label="Volume">
+		<small>Goes far quieter than the phone’s own lowest step — use it with earphones. Set the phone’s buttons first, then fine-tune here.</small>
+	</div>
+</div>
+
+<div class="head">Sound from each app</div>
+<div class="list" id="apps">
+	<div class="row" id="noApps"><div><small>Apps playing sound on the Mac show up here, each with its own slider.</small></div></div>
+</div>
+
+<div class="list">
+	<label class="row">
+		<div>Use this phone’s mic<small>The Mac sees it as “Phone Link Mic”.</small></div>
+		<span class="switch"><input type="checkbox" id="mic" checked><span></span></span>
+	</label>
+	<label class="row">
+		<div>Keep Mac speakers on too<small>Off: the sound plays only here.</small></div>
+		<span class="switch"><input type="checkbox" id="macSpeakers"><span></span></span>
+	</label>
+</div>
+
+<div class="note">
+	<p>In Zoom, Meet or FaceTime on the Mac, choose <b>Phone Link Mic</b> as the microphone.</p>
+	<p>Keep this page open. The screen stays on while you’re connected.</p>
+	<p>Earphones on the phone stop any echo.</p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let ctx = null, player = null, ws = null, want = false, retry = 0, wake = null;
+let micStream = null, micSrc = null, micNode = null, micSink = null;
+let bufferMs = 0, rtt = null, pingId = 0, pings = new Map(), pingTimer = null;
+const appRows = new Map();       // app id → its slider row
+
+try { $('mic').checked = localStorage.getItem('phonelink.mic') !== 'off'; } catch {}
+
+// Sliders run 0–100; loudness is the cube of that (so 50 ≈ −18 dB, 10 ≈ −60 dB), which puts
+// plenty of slider room at the quiet end, where the phone's own buttons have none.
+const toGain = pos => (pos / 100) ** 3;
+const toPos = gain => Math.round(Math.cbrt(Math.max(0, gain)) * 100);
+function paint(input, label) {
+	input.style.setProperty('--p', input.value + '%');
+	label.textContent = input.value === '0' ? 'Off' : input.value + '%';
+}
+function setVolume(pos, save) {
+	$('vol').value = pos; paint($('vol'), $('volText'));
+	if (player) player.port.postMessage({ gain: toGain(+pos) });
+	if (save) try { localStorage.setItem('phonelink.volume', pos); } catch {}
+}
+try { const v = localStorage.getItem('phonelink.volume'); if (v !== null) setVolume(+v); } catch {}
+
+function showApps(list) {
+	const seen = new Set();
+	for (const a of list) {
+		seen.add(a.id);
+		let r = appRows.get(a.id);
+		if (!r) {
+			const row = document.createElement('div'); row.className = 'row slide';
+			row.innerHTML = '<div class="top"><span></span><span></span></div><input type="range" min="0" max="100" step="1">';
+			const [name, pct] = row.querySelectorAll('span'), input = row.querySelector('input');
+			input.setAttribute('aria-label', a.name + ' volume');
+			r = { row, name, pct, input, busy: false };
+			input.oninput = () => { paint(input, pct); send({ t: 'appVol', id: a.id, vol: toGain(+input.value) }); };
+			input.onpointerdown = () => { r.busy = true; };
+			input.onchange = input.onpointerup = input.onpointercancel = () => { r.busy = false; };
+			appRows.set(a.id, r);
+			$('apps').appendChild(row);
+		}
+		r.name.textContent = a.name;
+		r.row.classList.toggle('idle', !a.playing);
+		if (!r.busy) { r.input.value = toPos(a.vol); paint(r.input, r.pct); }
+	}
+	for (const [id, r] of appRows) if (!seen.has(id)) { r.row.remove(); appRows.delete(id); }
+	// keep the rows in the Mac's order (by name)
+	for (const a of list) $('apps').appendChild(appRows.get(a.id).row);
+	$('noApps').hidden = list.length > 0;
+}
+
+function show(state, text, sub) {
+	$('dot').className = 'dot' + (state === 'on' ? ' on' : state === 'wait' ? ' wait' : '');
+	$('status').textContent = text;
+	if (sub !== undefined) $('sub').textContent = sub;
+	$('go').textContent = want ? 'Disconnect' : 'Connect';
+	$('go').classList.toggle('stop', want);
+}
+function error(msg) { $('err').hidden = !msg; $('err').textContent = msg || ''; }
+function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+
+function delayText() {
+	if (!ws || ws.readyState !== 1) return;
+	const out = ctx ? ((ctx.baseLatency || 0) + (ctx.outputLatency || 0)) * 1000 : 0;
+	const total = Math.round(bufferMs + (rtt ?? 0) / 2 + out + 11);
+	$('sub').textContent = `Delay about ${total} ms` + (rtt != null ? ` · Wi-Fi ${Math.round(rtt)} ms` : '');
+}
+
+async function setupAudio() {
+	if (navigator.audioSession) navigator.audioSession.type = $('mic').checked ? 'play-and-record' : 'playback';
+	if (!ctx) {
+		ctx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+		ctx.resume();                                   // must happen inside the tap
+		await ctx.audioWorklet.addModule('worklet.js');
+		player = new AudioWorkletNode(ctx, 'player', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+		player.connect(ctx.destination);
+		player.port.postMessage({ gain: toGain(+$('vol').value) });
+		player.port.onmessage = e => { bufferMs = e.data.bufferMs; delayText(); };
+		ctx.onstatechange = () => {
+			if (want && ctx.state !== 'running') show('wait', 'Paused by the phone', 'Tap Resume to carry on.'), $('go').textContent = 'Resume';
+		};
+	}
+	await ctx.resume();
+}
+
+async function startMic() {
+	if (micStream) return;
+	try {
+		micStream = await navigator.mediaDevices.getUserMedia({ audio: {
+			echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+	} catch (e) {
+		$('mic').checked = false;
+		error('The phone didn’t allow the mic. To allow it: Settings › Apps › your browser (Safari, Firefox…) › Microphone.');
+		return;
+	}
+	micSrc = ctx.createMediaStreamSource(micStream);
+	micNode = new AudioWorkletNode(ctx, 'mic', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] });
+	micSink = ctx.createGain(); micSink.gain.value = 0;    // keeps the mic node running, silently
+	micSrc.connect(micNode).connect(micSink).connect(ctx.destination);
+	micNode.port.onmessage = e => { if (ws && ws.readyState === 1 && ws.bufferedAmount < 16000) ws.send(e.data); };
+	send({ t: 'mic', rate: ctx.sampleRate });
+}
+
+function stopMic() {
+	if (!micStream) return;
+	micStream.getTracks().forEach(t => t.stop());
+	[micSrc, micNode, micSink].forEach(n => n && n.disconnect());
+	micStream = micSrc = micNode = micSink = null;
+	send({ t: 'micOff' });
+	if (navigator.audioSession) navigator.audioSession.type = 'playback';
+}
+
+function openSocket() {
+	ws = new WebSocket(`wss://${location.host}/ws`);
+	ws.binaryType = 'arraybuffer';
+	ws.onopen = () => {
+		retry = 0; rtt = null; pings.clear();
+		player.port.postMessage({ reset: true });
+		show('on', 'Connected', 'Waiting for sound…');
+		if (micStream) send({ t: 'mic', rate: ctx.sampleRate });
+		clearInterval(pingTimer);
+		pingTimer = setInterval(() => { pings.set(++pingId, performance.now()); send({ t: 'ping', id: pingId }); }, 2000);
+	};
+	ws.onmessage = e => {
+		if (typeof e.data !== 'string') { player.port.postMessage({ pcm: e.data }, [e.data]); return; }
+		const m = JSON.parse(e.data);
+		if (m.t === 'hello') { player.port.postMessage({ rate: m.rate }); $('macSpeakers').checked = !!m.macSpeakers; }
+		else if (m.t === 'apps') showApps(m.list);
+		else if (m.t === 'pong' && pings.has(m.id)) { rtt = performance.now() - pings.get(m.id); pings.delete(m.id); }
+		else if (m.t === 'error') error(m.text);
+	};
+	ws.onclose = () => {
+		clearInterval(pingTimer);
+		if (!want) return;
+		show('wait', 'Reconnecting…', 'Is the Mac awake, with Phone Link running?');
+		setTimeout(() => { if (want && (!ws || ws.readyState > 1)) openSocket(); }, Math.min(3000, 400 * ++retry));
+	};
+}
+
+async function keepAwake() {
+	try { if (navigator.wakeLock && !wake) { wake = await navigator.wakeLock.request('screen'); wake.onrelease = () => { wake = null; }; } } catch {}
+}
+
+async function connect() {
+	error('');
+	want = true;
+	show('wait', 'Connecting…', '');
+	try { await setupAudio(); }
+	catch (e) { want = false; show('', 'Not connected', ''); error('Couldn’t start sound on this phone: ' + e.message); return; }
+	if ($('mic').checked) await startMic();
+	if (!ws || ws.readyState > 1) openSocket();
+	keepAwake();
+}
+
+function disconnect() {
+	want = false;
+	stopMic();
+	if (ws) ws.close();
+	if (ctx) ctx.suspend();
+	if (wake) wake.release();
+	show('', 'Not connected', 'Tap Connect to hear the Mac here.');
+}
+
+$('go').onclick = () => {
+	if (want && ctx && ctx.state !== 'running') { ctx.resume().then(() => show('on', 'Connected')); return; }
+	want ? disconnect() : connect();
+};
+$('mic').onchange = async () => {
+	try { localStorage.setItem('phonelink.mic', $('mic').checked ? 'on' : 'off'); } catch {}
+	if (!want) return;
+	if ($('mic').checked) { if (navigator.audioSession) navigator.audioSession.type = 'play-and-record'; await startMic(); }
+	else stopMic();
+};
+$('vol').oninput = () => setVolume($('vol').value, true);
+$('macSpeakers').onchange = () => send({ t: 'macSpeakers', on: $('macSpeakers').checked });
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState !== 'visible' || !want) return;
+	if (ctx) ctx.resume();
+	keepAwake();
+	if (!ws || ws.readyState > 1) openSocket();
+});
+</script>
+</body>
+</html>

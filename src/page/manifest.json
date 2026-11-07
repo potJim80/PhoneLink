@@ -1,0 +1,9 @@
+{
+  "name": "Phone Link",
+  "short_name": "Phone Link",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#161619",
+  "theme_color": "#161619",
+  "icons": [{ "src": "icon.png", "sizes": "512x512", "type": "image/png" }]
+}

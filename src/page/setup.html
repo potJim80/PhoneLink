@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Phone Link setup</title>
+<style>
+:root { --bg: #f4f3f0; --card: #fff; --ink: #1d1d1f; --mute: #6e6e73; --line: #e2e0db; --accent: #4a6a92; --ok: #3d8a5a; }
+@media (prefers-color-scheme: dark) {
+	:root { --bg: #161619; --card: #222226; --ink: #ecebe8; --mute: #9a9aa0; --line: #33333a; --accent: #8fa8c6; --ok: #6cbf8a; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+	padding: max(24px, env(safe-area-inset-top)) 16px 32px; max-width: 480px; margin: 0 auto; }
+h1 { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+.lead { color: var(--mute); margin: 0 0 20px; }
+ol { list-style: none; padding: 0; margin: 0; counter-reset: s; background: var(--card); border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); }
+li { counter-increment: s; padding: 14px 16px 14px 52px; position: relative; }
+li + li { border-top: 1px solid var(--line); }
+li::before { content: counter(s); position: absolute; left: 16px; top: 14px; width: 24px; height: 24px; border-radius: 50%;
+	background: var(--line); font-size: 14px; font-weight: 600; text-align: center; line-height: 24px; }
+li.done::before { content: "✓"; background: var(--ok); color: var(--bg); }
+.path { color: var(--mute); font-size: 15px; display: block; margin-top: 2px; }
+a.btn { display: block; text-align: center; padding: 16px; border-radius: 14px; background: var(--accent); color: var(--bg);
+	font-weight: 600; text-decoration: none; margin: 20px 0 10px; }
+a.small { display: inline-block; margin-top: 6px; color: var(--accent); font-weight: 600; text-decoration: none; }
+#check { color: var(--mute); font-size: 15px; text-align: center; margin: 0 0 20px; }
+.note { color: var(--mute); font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>Phone Link setup</h1>
+<p class="lead">Once only. The phone needs to trust this Mac before it will lend it the microphone.</p>
+
+<ol>
+	<li id="s1">Get the Mac’s certificate, then tap <b>Allow</b>.<br><a class="small" href="/phonelink.cer">Get certificate</a></li>
+	<li>Install it.<span class="path">Settings › General › VPN &amp; Device Management › Phone Link › Install</span></li>
+	<li>Turn on trust for it.<span class="path">Settings › General › About › Certificate Trust Settings › Phone Link</span></li>
+</ol>
+
+<a class="btn" href="{{APP_URL}}">Open Phone Link</a>
+<p id="check">Checking whether this phone trusts the Mac…</p>
+
+<p class="note">Tip: once Phone Link is open, tap Share › Add to Home Screen. After that it opens like an app.</p>
+
+<script>
+const img = new Image();
+let settled = false;
+function done(ok) {
+	if (settled) return; settled = true;
+	document.getElementById('check').textContent = ok ? 'This phone trusts the Mac. You’re set.' : 'Not trusted yet. Do steps 1–3, then come back.';
+	if (ok) document.querySelectorAll('li').forEach(li => li.classList.add('done'));
+}
+img.onload = () => done(true);
+img.onerror = () => done(false);
+img.src = '{{APP_URL}}/icon.png?' + Date.now();
+setTimeout(() => done(false), 4000);
+</script>
+</body>
+</html>
